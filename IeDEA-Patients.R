@@ -17,7 +17,7 @@ setwd("/home/evaliliane/Documents/PhD/Codes")
 #Sys.Date()
 currentDate <- "2014-07-10"
 patFile <- paste("NewData/patdata_",currentDate,".csv",sep="")
-labFile <- paste("NewData/labdata_",currentDate,".csv",sep="")
+labFile <- paste("/home/evaliliane/Documents/PhD/Python/labdata_",currentDate,"_Time_Slope.csv",sep="")
 
 ############# READ PAT DATSET  ############################################################
 # Load PAT data
@@ -77,7 +77,7 @@ calc.age <- function (haart,birth) {
 }
 patdata$age.haart.init <- calc.age(patdata$haart_dmy,patdata$birth_dmy)
 patdata$age.haart.init[is.na(patdata$age.haart.init)] <- as.numeric(format(patdata$haart_dmy[is.na(patdata$age.haart.init)],format = "%Y")) - patdata$birth_y[is.na(patdata$age.haart.init)]
-
+ 
 #DROP OUT People with negative or NA age.
 rm.bad.age <- patdata$patient[which(patdata$age.haart.init < 0)]
 rm.bad.age1 <- patdata$patient[which(patdata$age.haart.init > 100)]
@@ -139,6 +139,9 @@ print("Removed non date")
 labdata <- labdata[!(is.na(labdata$lab_dmy)),]
 print(paste("After rm missing date for measurement ", length(unique(labdata$patient))))
 print(paste("After rm missing date for measurement ", length(labdata$lab_v)))
+labdata <- labdata[!(is.na(labdata$diff)),]
+print(paste("After rm missing time for measurement ", length(unique(labdata$patient))))
+
 
 #===========================================================================================================
 # Remove all rows with an improbable value for "CD4A", "CD4P", "LYMP", "RNA", "WBC" and "NEUT" measurements
@@ -157,6 +160,7 @@ adult.labdata <- labdata[labdata$patient %in% adult.patdata$patient,]
 # Limit for NEUT 10 okay            #
 
 # Adults
+
 print(paste("Adults patient with bad CD4A values",length(unique(adult.labdata$patient[which((adult.labdata$lab_id == "CD4A") & (adult.labdata$lab_v > 4000))]))))
 print(paste("Adults patient with bad CD4P values",length(unique(adult.labdata$patient[which((adult.labdata$lab_id == "CD4P") & (adult.labdata$lab_v > 70))] ))))
 print(paste("Adults patient with bad LYMP values",length(unique(adult.labdata$patient[which((adult.labdata$lab_id == "LYMP") & (adult.labdata$lab_v > 10000))]))))
@@ -238,30 +242,71 @@ oidata$patient <- as.factor(oidata$patient)
 child.oidata <- oidata[oidata$patient %in% child.patdata$patient,]
 adult.oidata <- oidata[oidata$patient %in% adult.patdata$patient,]
 
-########################## CREATE DATASETS MERGED DATASETS FOR MODELLING ADULTS & CHILDREN SEPARETELY ##########################################
+########################## CREATE DATASETS MERGED DATASETS FOR MODELLING CD4 counts of ADULTS & CHILDREN SEPARETELY ##########################################
 
-dat.child.patdata <- data.frame(child.patdata$patient,child.patdata$cohort, child.patdata$age.haart.init, child.patdata$gender) 
-names(dat.child.patdata) <- c("patient", "cohort", "age.haart.init", "gender")
-dat.child.labdata <- data.frame(child.labdata$patient, child.labdata$lab_v, child.labdata$lab_id, child.labdata$rna_l) # , child.labdata$tim.vis
-names(dat.child.labdata) <- c("patient", "lab_v", "lab_id", "rna_l")
-dat.child.visdata <- data.frame(child.visdata$patient, child.visdata$weight, child.visdata$height)
-names(dat.child.visdata) <- c("patient", "weight", "height")
+# dat.child.patdata <- data.frame(child.patdata$patient,child.patdata$cohort, child.patdata$age.haart.init, child.patdata$gender) 
+# names(dat.child.patdata) <- c("patient", "cohort", "age", "gender")
+# dat.child.labdata <- data.frame(child.labdata$patient, child.labdata$lab_v, child.labdata$lab_id, child.labdata$rna_l, child.labdata$slope, child.labdata$diff) # , child.labdata$tim.vis
+# names(dat.child.labdata) <- c("patient", "labv", "labid", "rnal", "slope", "time")
+# dat.child.labdata <- dat.child.labdata[dat.child.labdata$labid == "CD4A",]
+# dat.child.visdata <- data.frame(child.visdata$patient, child.visdata$weight, child.visdata$height)
+# names(dat.child.visdata) <- c("patient", "weight", "height")
+# 
+# system.time(child.data1 <- merge(dat.child.labdata, dat.child.patdata,by = "patient", all = TRUE))
+# system.time(child.data <- merge(child.data1, dat.child.visdata,by = "patient", all = TRUE))
 
-system.time(child.data1 <- merge(dat.child.visdata, dat.child.patdata,by = "patient", all = TRUE))
-system.time(child.data <- merge(child.data1, dat.child.labdata,by = "patient", all = TRUE))
+system.time(child.data1 <- merge(child.labdata, child.patdata,by = c("patient", "cohort"), all = TRUE))
+system.time(child.data <- merge(child.data1, child.visdata,by = c("patient", "cohort"), all = TRUE))
+#rm(child.data50)
+# Save Datasets
+currentDate <- Sys.Date()
+num.to.do1 <- 10 ## to save computing time when playing with analyses
+pids.to.run1 <- sample(unique(child.data$patient), num.to.do1) ## sample some patient ids to work with 
+child.data10 <- child.data[child.data$patient %in% pids.to.run1,]
+child.data10[is.na(child.data10)] <- .
+child.data10 <- child.data10[order(child.data10$patient, child.data10$time),]
+nameFile1 <- paste("NewData/IeDEA_Children_Data10",currentDate,".csv",sep="")
+write.csv(child.data10, file = nameFile1)
 
-dat.adult.patdata <- data.frame(adult.patdata$patient,adult.patdata$cohort, adult.patdata$age.haart.init, adult.patdata$gender) 
-names(dat.adult.patdata) <- c("patient", "cohort", "age.haart.init", "gender")
-dat.adult.labdata <- data.frame(adult.labdata$patient, adult.labdata$lab_v, adult.labdata$lab_id, adult.labdata$rna_l) # , adult.labdata$tim.vis
-names(dat.adult.labdata) <- c("patient", "lab_v", "lab_id", "rna_l")
-dat.adult.visdata <- data.frame(adult.visdata$patient, adult.visdata$weight, adult.visdata$height)
-names(dat.adult.visdata) <- c("patient", "weight", "height")
+num.to.do2 <- 50 ## to save computing time when playing with analyses
+pids.to.run2 <- sample(unique(child.data$patient), num.to.do2) ## sample some patient ids to work with 
+child.data50 <- child.data[child.data$patient %in% pids.to.run2,]
+child.data50 <- child.data50[!(is.na(child.data50$time)),]
+child.data50[is.na(child.data50)] <- .
+nameFile2 <- paste("NewData/IeDEA_Children_Data50",currentDate,".csv",sep="")
+child.data50 <- child.data50[order(child.data50$patient, child.data50$time),]
+write.csv(child.data50, file = nameFile2)
 
-system.time(adult.data1 <- merge(dat.adult.visdata, dat.adult.patdata,by = "patient", all = TRUE))
+num.to.do3 <- 100 ## to save computing time when playing with analyses
+pids.to.run3 <- sample(unique(child.data$patient), num.to.do3) ## sample some patient ids to work with 
+child.data100 <- child.data[child.data$patient %in% pids.to.run3,]
+child.data100 <- child.data100[!(is.na(child.data100$time)),]
+child.data100[is.na(child.data100)] <- .
+nameFile3 <- paste("NewData/IeDEA_Children_Data100",currentDate,".csv",sep="")
+child.data100 <- child.data100[order(child.data100$patient, child.data100$time),]
+write.csv(child.data100, file = nameFile3)
 
-print("The below line broke the code. To be checked.")
-system.time(adult.data <- merge(adult.data1, dat.adult.labdata,by = "patient", all = TRUE))
-print("Well done !")
+nameFile4 <- paste("NewData/IeDEA_Children_Data",currentDate,".csv",sep="")
+child.data <- child.data[!(is.na(child.data$time)),]
+#child.data[is.na(child.data)] <- .
+child.data <- child.data[order(child.data$patient, child.data$time),]
+write.csv(child.data, file = nameFile4)
+
+########################### SUBSET DATA ##########################################
+## Only work with a subset of this data to make things fast while debugging
+
+# dat.adult.patdata <- data.frame(adult.patdata$patient,adult.patdata$cohort, adult.patdata$age.haart.init, adult.patdata$gender) 
+# names(dat.adult.patdata) <- c("patient", "cohort", "age.haart.init", "gender")
+# dat.adult.labdata <- data.frame(adult.labdata$patient, adult.labdata$lab_v, adult.labdata$lab_id, adult.labdata$rna_l) # , adult.labdata$tim.vis
+# names(dat.adult.labdata) <- c("patient", "lab_v", "lab_id", "rna_l")
+# dat.adult.visdata <- data.frame(adult.visdata$patient, adult.visdata$weight, adult.visdata$height)
+# names(dat.adult.visdata) <- c("patient", "weight", "height")
+# 
+# system.time(adult.data1 <- merge(dat.adult.visdata, dat.adult.patdata,by = "patient", all = TRUE))
+# 
+# print("The below line broke the code. To be checked.")
+# system.time(adult.data <- merge(adult.data1, dat.adult.labdata,by = "patient", all = TRUE))
+# print("Well done !")
 
 #adult.data <- merge()
 
