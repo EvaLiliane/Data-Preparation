@@ -1,0 +1,364 @@
+\documentclass[10pt,a4paper]{report}
+\usepackage[T1]{fontenc}
+\usepackage{geometry}
+\geometry{margin = 1in}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\author{Eva Liliane Ujeneza}
+\title{IeDEA Data Cleaning Summary}
+
+
+\begin{document}
+\maketitle
+
+
+\SweaveOpts{concordance=TRUE}
+\SweaveOpts{keep.source=TRUE}
+%\SweaveOpts{width=6, height=4}
+
+<<echo=false>>=
+options(width=60)
+options(continue=" ")
+#options(SweaveHooks=list(fig=function()
+#   par(mar=c(5.1,4.1,1.1,2.1))))
+@
+
+
+Five datasets have been considered, namely the "PAT", "LAB", "VIS", "OI" and "ART" datasets. Initially, the number of patients for each dataset respectively is 223688, 223688, 221765, 40196 and 220419. We focusses more on the PAT and LAB datasets so far.
+
+
+\section{PAT Dataset}
+
+First, we checked that all patients in the PAT dataset had HIV-type 1 and were on HAART treatment. Prior to add a column for the age of patients at HAART initiation was added to the dataset, we checked patients with missing information on date/year of birth or of HAART initiation. Records for 234 patients showed that they have started treatment before 2001 or had no date for HAART initiation, and therefore they were removed them from the dataset. Note that none of the patients with missing date for HAART initiation had information on whether they had started HAART on a another facility prior to their first visit at thier current facility. We also applied an upper limit of 100 years and removed patients older than that or with a negative age (57 in total). Lastly, 2 patients were removed as the date for their last contact was after the 30th June 2014 and 20 were dropped due to missing gender. In total, 313 patients were removed from the PAT dataset. The age distribution of the remaining patients is shown in the below histogram.
+
+
+<< pat1,echo=false >>=
+library(foreign)
+currentDate <- "2014-08-22"
+currentDate2 <- "2014-08-22"
+LabFileName <- paste("NewData/adult_labdata",currentDate,".csv",sep="")
+PatFileName <- paste("NewData/adult_patdata",currentDate,".csv",sep="")
+LabFileName.c <- paste("NewData/children_labdata",currentDate,".csv",sep="")
+PatFileName.c <- paste("NewData/children_patdata",currentDate,".csv",sep="")
+LabFileName.all <- paste("NewData/cleaned_labdata",currentDate2,".csv",sep="")
+PatFileName.all <- paste("NewData/cleaned_patdata",currentDate2,".csv",sep="")
+
+adult.patdata <- read.csv(file=PatFileName)
+adult.labdata <- read.csv(file=LabFileName) 
+child.patdata <- read.csv(file=PatFileName.c)
+child.labdata <- read.csv(file=LabFileName.c) 
+all.patdata <- read.csv(file=PatFileName.all)
+all.labdata <- read.csv(file=LabFileName.all) 
+patdata1 <- read.dta("/home/evaliliane/Documents/PhD/IeDEA/Data/c5_14_Final Data_vs3_1/c5_14_pat_20140505.dta")
+labdata1 <- read.dta("/home/evaliliane/Documents/PhD/IeDEA/Data/c5_14_Final Data_vs3_1/c5_14_lab_20140505.dta")
+@
+
+\begin{figure}[!h]
+\centering
+<< pat2, echo=FALSE, fig=TRUE >>=
+#xname <- c("age at HAART initiation")
+hist(all.patdata$age.haart.init, col = 'blue', xlab = 'Age in years', main = paste("Histogram of patients age at HAART initiation"))
+@
+\end{figure}
+
+%\newpage
+
+Children have been defined as those whose age at HAART initiation falls below 17. By this definition we obtained 202108 adults and 21267 children. The total number of adults and children per cohort is also shown below. In two cohorts, RAHIMAMOOSA and REDCROSS, all patients are children. This explains the different number of cohorts between adults and children tables. Note that children data from AURUMWP cohort need to be closely checked as they are few and if necessary be dropped. Lastly, we need to check at what level the patient without a patient ID was created and correct that.
+
+<<pat30, echo=false>>=
+library(plyr)
+library(xtable)
+@
+
+% \begin{table}
+<<pat3, echo=false, results=tex>>=
+options(continue=" ")
+xtable :: xtable (ddply(adult.patdata,.(cohort) , summarize, Num.adults = length(unique(patient)), Female = sum(gender == 1), Male = sum(gender == 2)))
+@
+% \caption{Number of adults patients per cohort}
+% \end{table}
+
+<<pat31, echo=false, results=tex>>=
+xtable :: xtable (ddply(child.patdata,.(cohort) , summarize, Num.children = length(unique(patient)), Female = sum(gender == 1), Male = sum(gender == 2)))
+@
+
+<<pat32, echo=false, results=tex>>=
+xtable :: xtable (ddply(patdata1,.(cohort) , summarize, Num.patients = length(unique(patient)), Female = sum(gender == 1), Male = sum(gender == 2)))
+@
+
+\clearpage
+
+<<pat4, echo=false, results=tex>>=
+xtable :: xtable (ddply(adult.patdata,.(cohort) , summarize, Num.adults = length(unique(patient)), Death.HIV = sum(outcome == 10), Death.Unknown = sum(outcome == 11), Death.not.HIV = sum(outcome == 12)))
+@
+
+The below tables contain the total number of patient per death outcome. Death.HIV represent those that die from HIV, Death.Unknown those whose cause of death is unknown and Death.not.HIV those whose cause of death was not HIV. Given the result, it would be reasonable to assume that in most cohort, the cause of a patient death was not investigated.
+
+<<pat41, echo=true, results=tex>>=
+xtable :: xtable (ddply(child.patdata,.(cohort) , summarize, Num.children = length(unique(patient)), Death.HIV = sum(outcome == 10), Death.Unknown = sum(outcome == 11), Death.not.HIV = sum(outcome == 12)))
+@
+
+\clearpage
+
+<<pat5, echo=false, results=tex>>=
+xtable :: xtable (ddply(adult.patdata,.(cohort) , summarize, Num.adults = length(unique(patient)), Stage.I = sum(fhv_stage_who == 1), Stage.II = sum(fhv_stage_who == 2), Stage.III = sum(fhv_stage_who == 3),Stage.IV = sum(fhv_stage_who == 4))) 
+@
+
+These tables that show the total number of patient per HIV stage (as defined by WHO). All cohorts present patients that span the four HIV stage, with more patients in stage III. THEMBALETHU is the exception, with more than three quater of his patient being in stage I. It would be interesting to investigate whether the HIV stage of a patient had an impact on his CD4 recovery. Check the meaning of the empty spaces (do they represent 0 ?).
+
+<<pat51, echo=false, results=tex>>=
+xtable :: xtable (ddply(child.patdata,.(cohort) , summarize, Num.children = length(unique(patient)), Stage.I = sum(fhv_stage_who == 1), Stage.II = sum(fhv_stage_who == 2), Stage.III = sum(fhv_stage_who == 3),Stage.IV = sum(fhv_stage_who == 4))) 
+@
+
+\clearpage
+\section{LAB Dataset}
+
+The variables considered in the LAB dataset are viral load (copies/ml; RNA), white cell count x1000/mm3; WBC), CD4 absolute cells (cells/microl; CD4A), CD4 percentage (\%, CD4P) neutrophils cout (x1000/mm3; NEUT) and total lymphocites count ( cells/microl; LYMP). Initially the datasets had 2858743 rows, each containing a single measurement for one of the above variables for 223688 patients. All rows with negative or missing measurements values were dropped (60666 and 59054 rows respectively). This reduced the number of rows of measurements to 2751211 over 223472 patients in the LAB dataset. Checking for rows with no record about the date the measurement was taken reduced the dataset to 2749990 rows, no patient was dropped at this stage.
+
+<<lab60, echo=false, results=tex>>=
+xtable :: xtable (ddply(all.labdata, .(cohort), summarize, Num.pats = length(unique(patient)), Num.measmt = length(patient), RNA = sum(lab_id == "RNA"), WBC = sum(lab_id == "WBC"), CD4A = sum(lab_id == "CD4A"), CD4P= sum(lab_id == "CD4P"), LYPM = sum(lab_id == "LYMP"), NEUT = sum(lab_id == "NEUT")))
+@
+
+The dataset contains no rows with missing values for the variable measurement. Rows with missing date for the variable measurement have been removed as well as those with a missing measurement value. At this stage, 454 patients were dropped from the LAB dataset by the cleaning process. These are under investigation top check whether they belong to some cluster (like same cohort or facility, etc).
+
+<<lab6, echo=false, results=tex>>=
+# xtable :: xtable (ddply(adult.labdata, .(cohort), summarize, Num.patients = length(unique(patient)), Num.measurement = length(patient), RNA = sum(lab_id == "RNA"), WBC = sum(lab_id == "WBC"), CD4A = sum(lab_id == "CD4A"), CD4P= sum(lab_id == "CD4P"), LYPM = sum(lab_id == "LYMP")))
+@
+
+<<lab61, echo=false, results=tex>>=
+# xtable :: xtable (ddply(child.labdata, .(cohort), summarize, Num.patients = length(unique(patient)), Num.measurement = length(patient), RNA = sum(lab_id == "RNA"), WBC = sum(lab_id == "WBC"), CD4A = sum(lab_id == "CD4A"), CD4P= sum(lab_id == "CD4P"), LYPM = sum(lab_id == "LYMP")))
+@
+
+%\clearpage
+
+<<lab70, echo=false, results=tex>>=
+xtable :: xtable (ddply(adult.labdata, .(lab_id), summarize, Num.adults = length(unique(patient)), Maximun = max(lab_v), Minimun = min(lab_v), Average = mean(lab_v), Stand.Dev = sd(lab_v)))
+@
+
+
+Rows with improbable value for "CD4A", "CD4P", "LYMP", "RNA", "WBC" and "NEUT" measurements have been removed from the dataset. We defined improbable values as any measurement value that falls above the our chosen thresholds. These are: 4000 (6000) for adults (children) CD4A, 10000 (13000) for adults (children) LYMP, 70 for adults CD4P, 1500000 for adults RNA, 15 (20) for adults (children) WBC and 10 for adults NEUT. Note that similar limits have been applied to both adults and children datasets for XXX variable. We may consider using different upper threshold in a later stage. 
+
+
+<<lab71, echo=false, results=tex>>=
+xtable :: xtable (ddply(child.labdata, .(lab_id), summarize, Num.adults = length(unique(patient)), Maximum = max(lab_v), Minimum = min(lab_v), Average = mean(lab_v), Stand.Dev = sd(lab_v)))
+@
+
+
+
+<<lab8,echo=false>>= 
+set.seed(3) ## set random number generator seed
+num.to.do <- 200 ## to save computing time when playing with analyses
+pids.to.run <- sample(unique(adult.patdata$patient), num.to.do) ## sample some patient ids to work with 
+labtest <- adult.labdata[adult.labdata$patient %in% pids.to.run,] ## in pids.to.run?
+test1.cd4p <-labtest[labtest$lab_id == "CD4P",]
+test1.cd4a <- labtest[labtest$lab_id == "CD4A",]
+test1.lymp <- labtest[labtest$lab_id == "LYMP",]
+test1.rna <- labtest[labtest$lab_id == "RNA",]
+test1.wbc <- labtest[labtest$lab_id == "WBC",]
+
+test1.cd4a <- test1.cd4a[order(test1.cd4a$patient, test1.cd4a$lab_dmy),]
+test1.cd4p <- test1.cd4p[order(test1.cd4p$patient, test1.cd4p$lab_dmy),]
+test1.lymp <- test1.lymp[order(test1.lymp$patient, test1.lymp$lab_dmy),]
+test1.rna <- test1.rna[order(test1.rna$patient, test1.rna$lab_dmy),]
+test1.wbc <- test1.wbc[order(test1.wbc$patient, test1.wbc$lab_dmy),]
+
+# Compute time since first measurement and add a column to the dataset
+get.tfu <- function(vd, pid, browse=F) {
+  ##if(browse) browser()
+  #print(vd)
+  return(as.numeric(difftime(vd, vd[1], units = 'days'))/365.25)
+}
+
+# tim.vis <- daply(test1.cd4a, .(patient), transform, get.tfu(lab_dmy,patient, browse=T))
+test1.cd4a <- ddply(test1.cd4a, .(patient), transform, tim.vis = get.tfu(lab_dmy,patient, browse=T))
+test1.cd4p <- ddply(test1.cd4p, .(patient), transform, tim.vis = get.tfu(lab_dmy,patient, browse=T))
+test1.rna <- ddply(test1.rna, .(patient), transform, tim.vis = get.tfu(lab_dmy,patient, browse=T))
+test1.wbc <- ddply(test1.wbc, .(patient), transform, tim.vis = get.tfu(lab_dmy,patient, browse=T))
+test1.lymp <- ddply(test1.lymp, .(patient), transform, tim.vis = get.tfu(lab_dmy,patient, browse=T))
+
+ln.fxn <- function(xx, yy, pid, order.by.xx=F) {
+  ##  browser()
+  missing.data <- is.na(xx) | is.na(yy)
+  xx <- xx[!missing.data]
+  yy <- yy[!missing.data]
+  if(order.by.xx) {
+    ord <- order(xx)
+    xx <- xx[ord]
+    yy <- yy[ord]
+  }
+  lines(xx, yy, col = pid[1])
+}
+@
+
+\clearpage
+
+In all the following figures, information of 200 adult patients are displayed. CD4 counts and CD4 percentage tajectories are increase as one might expect. We observe that CD4 \% seems to reach an asymptotic state faster than CD4 counts. We will next compute CD4 Z-scores from CD4 count, which we expect to follow an asymptotic curve. However, the most urgent is to apply evaluate the above on the entire LAB datasets. 
+
+\begin{figure}[!h]
+<<labcd4a, echo=false, fig=TRUE>>=
+#pdf('Post HAART CD4 trajectories.pdf', w = 10, h = 7)
+xs <- seq(0, 10, by = .1) ## predict model at these yfu (years followed-up
+xlim <- range(xs)        ## yfu plot limits
+par('ps' = 12, mfrow = c(1,1)) ## graphical parameters
+plot(0,0, type='n', xlab = 'Time on HAART (years)', ylab = 'CD4 count', yaxt='n',
+     xlim = xlim, ylim = c(0,1600), main = 'HAART CD4 trajectories') ## initialize plot
+axis(2, at = seq(0,1600, by = 200), las = 2) ## create x-axis at these tick marks, las=2 rotates text to horizontal
+
+## line for each pid
+ddply(test1.cd4a, .(patient), with, ln.fxn(tim.vis, lab_v, patient, order.by.xx=T))
+modc0 <-  loess(lab_v ~ tim.vis, data = test1.cd4a)  ## get loess model
+lines(xs, predict(modc0, data.frame(tim.vis = xs, lab_v=NA)), lwd = 5) ## plot LOESS
+
+# New figures
+par('ps' = 12, mfrow = c(2,2))
+brks <- c(0,10,50,100,200,350,5000)
+brks <- c(0,150,300,450,600,5000) ##Create a variable for CD4 categories at ART initiation
+test1.cd4a$cd4a.categ <- cut(test1.cd4a$lab_v, breaks = brks)
+yfu.xs <- seq(0, 12, by = .1) ## predict model at these ayrs.fu
+
+for(ii in 1:nlevels(test1.cd4a$cd4a.categ)) {
+  curr.cat <- levels(test1.cd4a$cd4a.categ)[ii]
+  #plot(0,0, type='n', xlab = 'years since ART', ylab = 'CD4 count', yaxt='n',
+       #xlim = c(0,10), ylim = c(0,1600), main = paste('CD4 at ART start:', curr.cat))
+  #axis(2, at = seq(0,1600, by = 200), las = 2)
+  temp <- test1.cd4a[test1.cd4a$cd4a.categ == curr.cat,]
+  #ddply(temp, .(patient), with, ln.fxn(lab_v, tim.vis, patient))
+  modc <-  loess(lab_v ~  tim.vis, data = temp)
+  assign(paste0('mod',ii), modc)
+  #lines(yfu.xs, predict(modc, data.frame(tim.vis = yfu.xs, lab_v=NA)), lwd = 5,
+        #col = ii) ## plot LOESS
+}
+@
+\end{figure}
+
+\begin{figure}[!h]
+<<labcd4a1, echo=false, fig=TRUE>>=
+plot(0,0, type='n', xlab = 'years since ART', ylab = 'CD4 count', yaxt='n', bty = 'n', 
+     xlim = c(0,10), ylim = c(0,1200), main = 'average CD4 trajectory')
+axis(2, at = seq(0,1200, by = 300), las = 2) ## x axis
+for(ii in 1:nlevels(test1.cd4a$cd4a.categ)) { ## for each CD4 category
+  modc <- get(paste0('mod',ii)) ## get the loess model we assigned in the above for loop
+  lines(yfu.xs, predict(modc, data.frame(tim.vis = yfu.xs, lab_v=NA)), lwd = 5, col = ii) ## plot that LOESS model
+}
+legend('topright', leg = levels(test1.cd4a$cd4a.categ), ## add a legend with levels of the CD4 categories as the text
+       col = 1:nlevels(test1.cd4a$cd4a.categ), lwd = 2,  ## and the same colors as above
+       title = 'CD4 at ART initiation')
+@
+\end{figure}
+
+
+\begin{figure}[!h]
+<<labcd4p, echo=false, fig=TRUE>>=
+# pdf('Post HAART CD4 percentage trajectories.pdf', w = 10, h = 7)
+xs <- seq(0, 10, by = .1) ## predict model at these yfu (years followed-up
+xlim <- range(xs)        ## yfu plot limits
+par('ps' = 12, mfrow = c(1,1)) ## graphical parameters
+plot(0,0, type='n', xlab = 'Time on HAART (years)', ylab = 'CD4 percentage', yaxt='n',
+     xlim = xlim, ylim = c(0,60), main = 'HAART CD4 percentage trajectories') ## initialize plot
+axis(2, at = seq(0,60, by = 10), las = 2) ## create x-axis at these tick marks, las=2 rotates text to horizontal
+
+## line for each pid
+ddply(test1.cd4p, .(patient), with, ln.fxn(tim.vis, lab_v, patient, order.by.xx=T))
+modc0 <-  loess(lab_v ~ tim.vis, data = test1.cd4p)  ## get loess model
+lines(xs, predict(modc0, data.frame(tim.vis = xs, lab_v=NA)), lwd = 5) ## plot LOESS
+
+par('ps' = 12, mfrow = c(2,2))
+#brks <- c(0,10,50,100,200,350,5000)
+brks <- c(0,10,20,30,60) ##Create a variable for CD4 categories at ART initiation
+test1.cd4p$cd4p.categ <- cut(test1.cd4p$lab_v, breaks = brks)
+yfu.xs <- seq(0, 12, by = .1) ## predict model at these ayrs.fu
+
+for(ii in 1:nlevels(test1.cd4p$cd4p.categ)) {
+  curr.cat <- levels(test1.cd4p$cd4p.categ)[ii]
+  #plot(0,0, type='n', xlab = 'years since ART', ylab = 'CD4 percentage', yaxt='n',
+       #xlim = c(0,10), ylim = c(0,60), main = paste('CD4 percentage at ART start:', curr.cat))
+  #axis(2, at = seq(0,60, by = 10), las = 2)
+  temp <- test1.cd4p[test1.cd4p$cd4p.categ == curr.cat,]
+  #ddply(temp, .(patient), with, ln.fxn(lab_v, tim.vis, patient))
+  modc <-  loess(lab_v ~  tim.vis, data = temp)
+  assign(paste0('mod',ii), modc)
+  #lines(yfu.xs, predict(modc, data.frame(tim.vis = yfu.xs, lab_v=NA)), lwd = 5,
+        #col = ii) ## plot LOESS
+}
+@
+\end{figure}
+
+
+\begin{figure}[!h]
+<<labcd4p1, echo=false, fig=TRUE>>=
+#Figure to summarize above#
+# pdf('CD4 trajectory by CD4 percentage at ART initiation by range.pdf', w =8, h = 6)
+plot(0,0, type='n', xlab = 'years since ART', ylab = 'CD4 percentage', yaxt='n', bty = 'n', 
+     xlim = c(0,10), ylim = c(0,60), main = 'Average CD4 percentage trajectory')
+axis(2, at = seq(0,60, by = 10), las = 2) ## x axis
+for(ii in 1:nlevels(test1.cd4p$cd4p.categ)) { ## for each CD4 category
+  modc <- get(paste0('mod',ii)) ## get the loess model we assigned in the above for loop
+  lines(yfu.xs, predict(modc, data.frame(tim.vis = yfu.xs, lab_v=NA)), lwd = 5, col = ii) ## plot that LOESS model
+}
+legend('topright', leg = levels(test1.cd4p$cd4p.categ), ## add a legend with levels of the CD4 categories as the text
+       col = 1:nlevels(test1.cd4p$cd4p.categ), lwd = 2,  ## and the same colors as above
+       title = 'CD4 percentage at ART initiation')
+@
+\end{figure}
+
+\begin{figure}[!h]
+<<labrna, echo=false, fig=TRUE>>=
+#pdf('Post HAART RNA trajectories.pdf', w = 10, h = 7)
+xs <- seq(0, 10, by = .1) ## predict model at these yfu (years followed-up
+xlim <- range(xs)        ## yfu plot limits
+par('ps' = 12, mfrow = c(1,1)) ## graphical parameters
+plot(0,0, type='n', xlab = 'Time on HAART (years)', ylab = 'Log RNA', yaxt='n',
+     xlim = xlim, ylim = c(0,8), main = 'HAART log RNA trajectories') ## initialize plot
+axis(2, at = seq(0,8, by = 4), las = 2) ## create x-axis at these tick marks, las=2 rotates text to horizontal
+
+## line for each pid
+ddply(test1.rna, .(patient), with, ln.fxn(tim.vis, log10(lab_v), patient, order.by.xx=T))
+modc0 <-  loess(log10(lab_v) ~ tim.vis, data = test1.rna)  ## get loess model
+lines(xs, predict(modc0, data.frame(tim.vis = xs, lab_v=NA)), lwd = 5) ## plot LOESS
+
+#pdf('Post HAART RNA percentage trajectories all range.pdf', w =8, h = 6)
+par('ps' = 12, mfrow = c(2,2))
+#brks <- c(0,10,50,100,200,350,5000)
+brks <- c(0,30,50,200,2000000) ##Create a variable for RNA categories at ART initiation
+test1.rna$rna.categ <- cut(test1.rna$lab_v, breaks = brks)
+yfu.xs <- seq(0, 8, by = .1) ## predict model at these ayrs.fu
+
+for(ii in 1:nlevels(test1.rna$rna.categ)) {
+  curr.cat <- levels(test1.rna$rna.categ)[ii]
+  #plot(0,0, type='n', xlab = 'years since ART', ylab = ' RNA percentage', yaxt='n',
+       #xlim = c(0,10), ylim = c(0,16), main = paste(' RNA percentage at ART start:', curr.cat))
+  #axis(2, at = seq(0,16, by = 4), las = 2)
+  temp <- test1.rna[test1.rna$rna.categ == curr.cat,]
+  #ddply(temp, .(patient), with, ln.fxn(log(lab_v), tim.vis, patient))
+  modc <-  loess(log10(lab_v) ~  tim.vis, data = temp)
+  assign(paste0('mod',ii), modc)
+  #lines(yfu.xs, predict(modc, data.frame(tim.vis = yfu.xs, lab_v=NA)), lwd = 5,
+        #col = ii) ## plot LOESS
+}
+
+
+@
+\end{figure}
+
+
+
+\begin{figure}[!h]
+<<labrna1, echo=false, fig=TRUE>>=
+#Figure to summarize above#
+#pdf(' RNA trajectory by RNA percentage at ART initiation by range.pdf', w =8, h = 6)
+plot(0,0, type='n', xlab = 'years since ART', ylab = 'Log RNA', yaxt='n', bty = 'n', 
+     xlim = c(0,10), ylim = c(0,8), main = 'Average log RNA trajectory')
+axis(2, at = seq(0,8, by = 4), las = 2) ## x axis
+for(ii in 1:nlevels(test1.rna$rna.categ)) { ## for each CD4 category
+  modc <- get(paste0('mod',ii)) ## get the loess model we assigned in the above for loop
+  lines(yfu.xs, predict(modc, data.frame(tim.vis = yfu.xs, lab_v=NA)), lwd = 5, col = ii) ## plot that LOESS model
+}
+legend('topright', leg = levels(test1.rna$rna.categ), ## add a legend with levels of the CD4 categories as the text
+       col = 1:nlevels(test1.rna$rna.categ), lwd = 2,  ## and the same colors as above
+       title = ' Log RNA at ART initiation')
+@
+\end{figure}
+
+
+\end{document}
